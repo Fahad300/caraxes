@@ -67,5 +67,8 @@
       "Bash(rm -r*)"
     ],
     "deny": []
+  },
+  "enabledPlugins": {
+    "expo@claude-plugins-official": true
   }
 }
