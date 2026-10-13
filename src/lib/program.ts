@@ -130,9 +130,10 @@ export const PRE_SESSION_ITEMS: SessionDurationItem[] = [
   { key: 'dynamic-stretch', label: 'Dynamic Stretch', phase: 'dynamicStretch' },
 ];
 
-export function getPostSessionItems(day: ProgramDay): SessionDurationItem[] {
+export function getPostSessionItems(day: { cardioFinisher: string | null }): SessionDurationItem[] {
+  const finisher = day.cardioFinisher ? `Cardio Finisher (${day.cardioFinisher})` : 'Cardio Finisher';
   return [
-    { key: 'cardio-finisher', label: `Cardio Finisher (${day.cardioFinisher})`, phase: 'cardioFinisher', targetMinutes: CARDIO_FINISHER_MINUTES },
+    { key: 'cardio-finisher', label: finisher, phase: 'cardioFinisher', targetMinutes: CARDIO_FINISHER_MINUTES },
     { key: 'post-stretch', label: 'Post-Stretch', phase: 'postStretch' },
   ];
 }

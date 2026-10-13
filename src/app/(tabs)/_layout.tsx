@@ -1,4 +1,4 @@
-import { Tabs } from 'expo-router';
+import { Tabs, router } from 'expo-router';
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { Button } from '../../components/Button';
@@ -60,7 +60,22 @@ export default function TabsLayout() {
           ),
         }}
       />
-      <Tabs.Screen name="index" options={{ title: 'Workout' }} />
+      <Tabs.Screen
+        name="index"
+        options={{
+          title: 'Workout',
+          headerRight: () => (
+            <Pressable
+              accessibilityRole="button"
+              hitSlop={8}
+              onPress={() => router.push('/routine')}
+              style={{ paddingHorizontal: spacing.lg }}
+            >
+              <Text style={{ color: functional.textDim, fontSize: 15 }}>Edit routine</Text>
+            </Pressable>
+          ),
+        }}
+      />
       <Tabs.Screen name="diet" options={{ title: 'Diet' }} />
       <Tabs.Screen name="supplements" options={{ title: 'Supplements' }} />
       <Tabs.Screen name="weight" options={{ title: 'Weight' }} />

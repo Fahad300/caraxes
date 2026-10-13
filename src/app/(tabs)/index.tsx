@@ -5,34 +5,35 @@ import { DurationTimer } from '../../components/DurationTimer';
 import { ExerciseCard, type LoggedSet } from '../../components/ExerciseCard';
 import { RestBanner } from '../../components/RestBanner';
 import { WeekStrip } from '../../components/WeekStrip';
-import {
-  DayKey,
-  PRE_SESSION_ITEMS,
-  SESSION_BUDGET_MINUTES,
-  getPostSessionItems,
-  getProgramDay,
-} from '../../lib/program';
-import { createSession, deleteSetLog, insertSetLog, useRoutineDays } from '../../lib/data';
+import { createSession, deleteSetLog, insertSetLog } from '../../lib/data';
+import { PRE_SESSION_ITEMS, SESSION_BUDGET_MINUTES, getPostSessionItems } from '../../lib/program';
+import { useActiveRoutine, type RoutineExercise } from '../../lib/routine';
 import { functional, restSecondsByPhase, stopwatchColor } from '../../lib/theme';
-import { formatDuration, todayProgramDay } from '../../lib/time';
+import { formatDuration } from '../../lib/time';
 import { useRestTimer } from '../../lib/useRestTimer';
 import { useWeekProgress } from '../../lib/useWeekProgress';
+import { todayWeekday } from '../../lib/week';
 
 export default function WorkoutScreen() {
-  const [selectedDay, setSelectedDay] = useState<DayKey | null>(todayProgramDay());
+  const routine = useActiveRoutine().data;
+  const week = useWeekProgress();
+  const rest = useRestTimer();
+
+  // Until the user taps a day, show whichever routine day is scheduled today.
+  const [pickedDayId, setPickedDayId] = useState<string | null>(null);
+  const days = routine?.days ?? [];
+  const defaultDay = days.find((d) => d.weekday === todayWeekday());
+  const day = days.find((d) => d.id === pickedDayId) ?? defaultDay;
+
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [sessionStartedAt, setSessionStartedAt] = useState<number | null>(null);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
+  // Keyed by the routine exercise id, so the same movement can appear twice.
   const [setsByExercise, setSetsByExercise] = useState<Record<string, LoggedSet[]>>({});
   const [weightInput, setWeightInput] = useState('');
   const [repsInput, setRepsInput] = useState('');
   const [activeExercise, setActiveExercise] = useState<string | null>(null);
   const sessionInterval = useRef<ReturnType<typeof setInterval> | null>(null);
-  const rest = useRestTimer();
-  const week = useWeekProgress();
-  const routineDays = useRoutineDays();
-
-  const day = selectedDay ? getProgramDay(selectedDay) : undefined;
 
   useEffect(() => {
     if (sessionStartedAt === null) return;
@@ -46,26 +47,34 @@ export default function WorkoutScreen() {
 
   async function ensureSession(): Promise<string> {
     if (sessionId !== null) return sessionId;
-    const dayName = day?.label ?? 'Unknown';
-    const routineDayId = routineDays.data?.find((d) => d.name === dayName)?.id ?? null;
-    const session = await createSession({ dayName, routineDayId });
+    const session = await createSession({
+      dayName: day?.name ?? 'Unknown',
+      routineDayId: day?.id ?? null,
+    });
     setSessionId(session.id);
     setSessionStartedAt(Date.parse(session.started_at));
     return session.id;
   }
 
-  async function completeSet(exerciseName: string, isLastSet: boolean, phase: keyof typeof restSecondsByPhase) {
+  async function completeSet(exercise: RoutineExercise, isLastSet: boolean) {
     const weight = parseFloat(weightInput);
     const reps = parseInt(repsInput, 10);
     if (Number.isNaN(weight) || Number.isNaN(reps)) return;
 
-    const existing = setsByExercise[exerciseName] ?? [];
+    const existing = setsByExercise[exercise.id] ?? [];
     const setNumber = existing.length + 1;
 
     let id: string;
     try {
       const sid = await ensureSession();
-      id = await insertSetLog({ sessionId: sid, exerciseName, setNumber, weight, reps });
+      id = await insertSetLog({
+        sessionId: sid,
+        exerciseId: exercise.exerciseId,
+        exerciseName: exercise.name,
+        setNumber,
+        weight,
+        reps,
+      });
     } catch (e) {
       // Nothing is recorded locally on failure, so the inputs stay filled and
       // the user can retry the same set.
@@ -75,21 +84,22 @@ export default function WorkoutScreen() {
 
     setSetsByExercise((prev) => ({
       ...prev,
-      [exerciseName]: [...existing, { id, setNumber, weight, reps }],
+      [exercise.id]: [...existing, { id, setNumber, weight, reps }],
     }));
     setWeightInput('');
     setRepsInput('');
     setActiveExercise(null);
     week.reload();
 
-    const restSeconds = restSecondsByPhase[phase];
+    // The routine's own rest value wins; phase defaults cover older rows.
+    const restSeconds = exercise.restSeconds ?? restSecondsByPhase[exercise.phase];
     if (!isLastSet && restSeconds) {
       rest.start(restSeconds);
     }
   }
 
-  async function undoLastSet(exerciseName: string) {
-    const existing = setsByExercise[exerciseName] ?? [];
+  async function undoLastSet(exerciseKey: string) {
+    const existing = setsByExercise[exerciseKey] ?? [];
     const last = existing[existing.length - 1];
     if (!last) return;
     try {
@@ -100,7 +110,7 @@ export default function WorkoutScreen() {
     }
     setSetsByExercise((prev) => ({
       ...prev,
-      [exerciseName]: existing.slice(0, -1),
+      [exerciseKey]: existing.slice(0, -1),
     }));
     week.reload();
   }
@@ -109,7 +119,7 @@ export default function WorkoutScreen() {
 
   return (
     <View style={styles.container}>
-      <WeekStrip days={week.days} selectedDay={selectedDay} onSelect={setSelectedDay} />
+      <WeekStrip days={week.days} selectedDay={day?.id ?? null} onSelect={setPickedDayId} />
 
       {sessionStartedAt !== null && (
         <Text style={[styles.sessionTimer, { color: stopwatchTextColor }]}>
@@ -124,37 +134,40 @@ export default function WorkoutScreen() {
         onExtend={() => rest.extend(15)}
       />
 
-      {!day && (
-        <Text style={styles.restDay}>Rest day - no program scheduled. Pick a day above to log anyway.</Text>
+      {!routine && <Text style={styles.restDay}>No active routine yet.</Text>}
+
+      {routine && !day && (
+        <Text style={styles.restDay}>Rest day - nothing scheduled. Pick a day above to log anyway.</Text>
       )}
 
       {day && (
         <FlatList
           data={[...PRE_SESSION_ITEMS, ...day.exercises, ...getPostSessionItems(day)]}
-          keyExtractor={(item) => ('key' in item ? item.key : item.name)}
+          keyExtractor={(item) => ('key' in item ? item.key : item.id)}
           contentContainerStyle={styles.list}
           renderItem={({ item }) => {
             if ('label' in item) {
               return <DurationTimer label={item.label} phase={item.phase} targetMinutes={item.targetMinutes} />;
             }
-            const logged = setsByExercise[item.name] ?? [];
+            const logged = setsByExercise[item.id] ?? [];
             const isLastSet = logged.length === item.sets - 1;
             return (
               <ExerciseCard
                 exercise={item}
                 logged={logged}
-                isEditing={activeExercise === item.name}
+                isEditing={activeExercise === item.id}
                 weightInput={weightInput}
                 repsInput={repsInput}
-                onStartEdit={() => setActiveExercise(item.name)}
+                onStartEdit={() => setActiveExercise(item.id)}
                 onChangeWeight={setWeightInput}
                 onChangeReps={setRepsInput}
-                onCompleteSet={() => completeSet(item.name, isLastSet, item.phase)}
-                onUndoLast={() => undoLastSet(item.name)}
+                onCompleteSet={() => completeSet(item, isLastSet)}
+                onUndoLast={() => undoLastSet(item.id)}
               />
             );
           }}
           ItemSeparatorComponent={() => <View style={{ height: 10 }} />}
+          ListEmptyComponent={<Text style={styles.restDay}>No exercises on this day yet.</Text>}
         />
       )}
     </View>

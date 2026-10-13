@@ -131,20 +131,6 @@ export function useLogWeight() {
 }
 
 // ----------------------------------------------------------------- workout
-export function useRoutineDays() {
-  return useQuery({
-    queryKey: ['routineDays'],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('routine_days')
-        .select('id, name')
-        .order('sort_order', { ascending: true });
-      if (error) throw error;
-      return data;
-    },
-  });
-}
-
 export async function createSession(input: { dayName: string; routineDayId: string | null }) {
   const { data, error } = await supabase
     .from('workout_sessions')
@@ -161,6 +147,7 @@ export async function createSession(input: { dayName: string; routineDayId: stri
 
 export async function insertSetLog(input: {
   sessionId: string;
+  exerciseId: string | null;
   exerciseName: string;
   setNumber: number;
   weight: number;
@@ -170,6 +157,7 @@ export async function insertSetLog(input: {
     .from('set_logs')
     .insert({
       session_id: input.sessionId,
+      exercise_id: input.exerciseId,
       exercise_name: input.exerciseName,
       set_number: input.setNumber,
       weight: input.weight,

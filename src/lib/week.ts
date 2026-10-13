@@ -1,9 +1,10 @@
-import { PROGRAM, type DayKey } from './program';
+import { WEEKDAY_SHORT, type RoutineDay } from './routine';
 
 export interface WeekDay {
-  key: DayKey;
+  key: string; // routine day id
   label: string;
   shortLabel: string;
+  weekday: number; // 1 = Monday ... 7 = Sunday
   dateKey: string;
   dateNumber: number;
   plannedSets: number;
@@ -33,22 +34,31 @@ export function weekBounds(now: Date = new Date()): { start: string; end: string
   return { start: localDateKey(monday), end: localDateKey(sunday) };
 }
 
-// The five program days of the current week, in PROGRAM order (Mon-Fri).
-export function currentWeek(now: Date = new Date()): WeekDay[] {
+// 1 = Monday ... 7 = Sunday, matching routine_days.weekday.
+export function todayWeekday(now: Date = new Date()): number {
+  return ((now.getDay() + 6) % 7) + 1;
+}
+
+// The routine's scheduled days laid out on the current week, in weekday
+// order. Days without a weekday aren't on the strip.
+export function currentWeek(days: RoutineDay[], now: Date = new Date()): WeekDay[] {
   const monday = mondayOf(now);
   const todayKey = localDateKey(now);
-  return PROGRAM.map((day, i) => {
-    const date = new Date(monday);
-    date.setDate(monday.getDate() + i);
-    const dateKey = localDateKey(date);
-    return {
-      key: day.key,
-      label: day.label,
-      shortLabel: day.label.slice(0, 3),
-      dateKey,
-      dateNumber: date.getDate(),
-      plannedSets: day.exercises.reduce((sum, e) => sum + e.sets, 0),
-      isToday: dateKey === todayKey,
-    };
-  });
+  return days
+    .filter((d): d is RoutineDay & { weekday: number } => d.weekday !== null)
+    .map((day) => {
+      const date = new Date(monday);
+      date.setDate(monday.getDate() + day.weekday - 1);
+      const dateKey = localDateKey(date);
+      return {
+        key: day.id,
+        label: day.name,
+        shortLabel: WEEKDAY_SHORT[day.weekday - 1],
+        weekday: day.weekday,
+        dateKey,
+        dateNumber: date.getDate(),
+        plannedSets: day.exercises.reduce((sum, e) => sum + e.sets, 0),
+        isToday: dateKey === todayKey,
+      };
+    });
 }

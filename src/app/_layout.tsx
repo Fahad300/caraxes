@@ -39,6 +39,7 @@ function RootNavigator() {
     <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: brand.black } }}>
       <Stack.Protected guard={!!session}>
         <Stack.Screen name="(tabs)" />
+        <Stack.Screen name="routine" />
       </Stack.Protected>
 
       <Stack.Protected guard={!session}>

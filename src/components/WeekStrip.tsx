@@ -1,13 +1,12 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
-import type { DayKey } from '../lib/program';
 import { functional, radius, spacing } from '../lib/theme';
 import type { DayProgress } from '../lib/useWeekProgress';
 
 interface Props {
   days: DayProgress[];
-  selectedDay: DayKey | null;
-  onSelect: (day: DayKey) => void;
+  selectedDay: string | null; // routine day id
+  onSelect: (dayId: string) => void;
 }
 
 // Mon-Fri strip: weekday, date, and a check once the day's planned sets are

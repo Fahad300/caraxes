@@ -26,3 +26,13 @@ keeps one user's data away from another's.
   inactivity; resume from the dashboard if the app suddenly can't connect.
 - The default routine and supplement stack are inserted by the app on first
   sign-in through the `seed_default_data` function (atomic, idempotent).
+
+## Exercise catalog
+
+`migrations/20261013010000_import_exercise_catalog.sql` imports ~870
+exercises from [free-exercise-db](https://github.com/yuhonas/free-exercise-db)
+(Unlicense) as shared rows (`user_id is null`, `source = 'free-exercise-db'`).
+The database downloads the JSON itself via the `http` extension, which the
+migration enables and then drops; re-running it updates rows in place.
+Images are stored as relative paths; prefix with
+`https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/`.

@@ -4,10 +4,11 @@ import { router } from 'expo-router';
 import { ProgressBar } from '../../components/ProgressBar';
 import { StatCard } from '../../components/StatCard';
 import { todayKey, useFoodLogs, useSupplementLogs, useSupplements, useWeights } from '../../lib/data';
-import { getProgramDay, PROTEIN_TARGET_HIGH_G, PROTEIN_TARGET_LOW_G } from '../../lib/program';
+import { PROTEIN_TARGET_HIGH_G, PROTEIN_TARGET_LOW_G } from '../../lib/program';
+import { useActiveRoutine } from '../../lib/routine';
 import { functional, spacing } from '../../lib/theme';
-import { todayProgramDay } from '../../lib/time';
 import { useWeekProgress } from '../../lib/useWeekProgress';
+import { todayWeekday } from '../../lib/week';
 import { average } from '../../lib/weight';
 
 // Read-only overview. Every figure comes from data the other tabs already
@@ -27,16 +28,15 @@ export default function TodayScreen() {
     weekAvgWeight: average(recentWeights),
   };
 
-  const programKey = todayProgramDay();
-  const todayProgress = week.days.find((d) => d.key === programKey);
-  const todayProgram = programKey ? getProgramDay(programKey) : undefined;
+  const todayDay = useActiveRoutine().data?.days.find((d) => d.weekday === todayWeekday());
+  const todayProgress = week.days.find((d) => d.key === todayDay?.id);
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       <StatCard
         title={todayProgress ? `Today - ${todayProgress.label}` : 'Today'}
         value={todayProgress ? `${todayProgress.loggedSets}/${todayProgress.plannedSets} sets` : 'Rest day'}
-        caption={todayProgram?.focus ?? 'No program scheduled'}
+        caption={todayDay?.focus ?? 'No program scheduled'}
         onPress={() => router.navigate('/')}
       />
 
