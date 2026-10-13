@@ -61,27 +61,21 @@ same reason "the Blood Wyrm" as a name works at all. This is the one place
 the palette prioritizes function over lore accuracy, and that's stated here
 on purpose so it doesn't get "corrected" into a literal color later.
 
-### App icon — direction, not a literal dragon
+### App icon — the winged-dragon mark
 
-Do not render Caraxes as a creature. A recognizable dragon illustration
-reads as derivative of the show's actual character design — the name is a
-borrowed word, the icon should be an original mark, not a rendering.
+The app mark is a red winged dragon coiled in an S-curve on black
+(`assets/brand/caraxes-logo-source.webp`, supplied by the project owner).
+This supersedes the earlier "abstract mark, not a literal dragon" direction
+(serpentine C / scale / ember) — that was a risk note about resembling the
+show's character design, and the owner chose this mark knowingly.
 
-Three workable directions:
+Derived assets, all generated from the source: `icon.png` (iOS/store, on
+`--brand-black`), `android-icon-foreground/background/monochrome.png`
+(foreground sits inside the 66% safe zone; monochrome is a solid
+silhouette), `splash-icon.png` (transparent; the splash plugin supplies the
+black), `favicon.png`, and `logo.png` for in-app use via
+`src/components/Logo.tsx`.
 
-1. **Serpentine C-mark** — the letter C (Caraxes' initial) rendered as a
-   single continuous curved stroke that whips at one end like a tail —
-   abstract enough to stand alone, specific enough to feel intentional.
-2. **Single scale motif** — one large, geometric scale shape (a rounded
-   diamond/lens form), blood-red on black, as a minimal icon mark — evokes
-   dragon without depicting one.
-3. **Ember/flame mark** — a single angular flame shape, more fire than
-   creature, in the brand red — leans into "forged through fire" rather
-   than the animal itself.
-
-Recommended: (1) — it's the most literally tied to the name (a C), the most
-original (nothing else looks like it), and scales best down to a small
-icon size.
 
 ### Splash / empty states
 Black background (`--brand-black`), red wordmark or mark, no gradient
