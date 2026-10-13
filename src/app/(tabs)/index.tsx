@@ -1,14 +1,14 @@
 import { useEffect, useRef, useState } from 'react';
-import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
+import { FlatList, StyleSheet, Text, View } from 'react-native';
 import { useSQLiteContext } from 'expo-sqlite';
 
 import { DurationTimer } from '../../components/DurationTimer';
 import { ExerciseCard, type LoggedSet } from '../../components/ExerciseCard';
 import { RestBanner } from '../../components/RestBanner';
+import { WeekStrip } from '../../components/WeekStrip';
 import {
   DayKey,
   PRE_SESSION_ITEMS,
-  PROGRAM,
   SESSION_BUDGET_MINUTES,
   getPostSessionItems,
   getProgramDay,
@@ -16,6 +16,7 @@ import {
 import { functional, restSecondsByPhase, stopwatchColor } from '../../lib/theme';
 import { formatDuration, isoNow, todayProgramDay } from '../../lib/time';
 import { useRestTimer } from '../../lib/useRestTimer';
+import { useWeekProgress } from '../../lib/useWeekProgress';
 
 export default function WorkoutScreen() {
   const db = useSQLiteContext();
@@ -29,6 +30,7 @@ export default function WorkoutScreen() {
   const [activeExercise, setActiveExercise] = useState<string | null>(null);
   const sessionInterval = useRef<ReturnType<typeof setInterval> | null>(null);
   const rest = useRestTimer();
+  const week = useWeekProgress();
 
   const day = selectedDay ? getProgramDay(selectedDay) : undefined;
 
@@ -81,6 +83,7 @@ export default function WorkoutScreen() {
     setWeightInput('');
     setRepsInput('');
     setActiveExercise(null);
+    week.reload();
 
     const restSeconds = restSecondsByPhase[phase];
     if (!isLastSet && restSeconds) {
@@ -97,25 +100,14 @@ export default function WorkoutScreen() {
       ...prev,
       [exerciseName]: existing.slice(0, -1),
     }));
+    week.reload();
   }
 
   const stopwatchTextColor = stopwatchColor(elapsedSeconds, functional.text);
 
   return (
     <View style={styles.container}>
-      <View style={styles.dayPicker}>
-        {PROGRAM.map((d) => (
-          <Pressable
-            key={d.key}
-            onPress={() => setSelectedDay(d.key)}
-            style={[styles.dayButton, selectedDay === d.key && styles.dayButtonActive]}
-          >
-            <Text style={selectedDay === d.key ? styles.dayButtonTextActive : styles.dayButtonText}>
-              {d.label.slice(0, 3)}
-            </Text>
-          </Pressable>
-        ))}
-      </View>
+      <WeekStrip days={week.days} selectedDay={selectedDay} onSelect={setSelectedDay} />
 
       {sessionStartedAt !== null && (
         <Text style={[styles.sessionTimer, { color: stopwatchTextColor }]}>
@@ -169,11 +161,6 @@ export default function WorkoutScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: functional.background, padding: 12 },
-  dayPicker: { flexDirection: 'row', gap: 6, marginBottom: 8 },
-  dayButton: { paddingVertical: 8, paddingHorizontal: 12, borderRadius: 6, backgroundColor: functional.elevated, minHeight: 44, justifyContent: 'center' },
-  dayButtonActive: { backgroundColor: functional.text },
-  dayButtonText: { color: functional.textDim, fontWeight: '600' },
-  dayButtonTextActive: { color: functional.background, fontWeight: '700' },
   sessionTimer: { fontSize: 22, fontWeight: '800', marginBottom: 8, fontVariant: ['tabular-nums'] },
   restDay: { marginTop: 20, color: functional.textDim, textAlign: 'center' },
   list: { paddingBottom: 24 },
