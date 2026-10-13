@@ -1,7 +1,8 @@
-import { useCallback, useState } from 'react';
-import { useFocusEffect } from 'expo-router';
-import { useSQLiteContext } from 'expo-sqlite';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useCallback, useMemo } from 'react';
 
+import { PROGRAM } from './program';
+import { supabase } from './supabase';
 import { currentWeek, weekBounds, type WeekDay } from './week';
 
 export interface DayProgress extends WeekDay {
@@ -29,32 +30,37 @@ function build(days: WeekDay[], countsByDay: Record<string, number>): WeekProgre
 }
 
 // Sets logged against the fixed program for the current week. Counted by the
-// program day each session was started for (sessions.day), so doing Friday's
-// workout on a Saturday still ticks off Friday.
+// program day each session was started for (workout_sessions.day_name), so
+// doing Friday's workout on a Saturday still ticks off Friday.
 export function useWeekProgress() {
-  const db = useSQLiteContext();
-  const [progress, setProgress] = useState<WeekProgress>(() => build(currentWeek(), {}));
+  const queryClient = useQueryClient();
+  const { start, end } = weekBounds();
 
-  const reload = useCallback(async () => {
-    const { start, end } = weekBounds();
-    const rows = await db.getAllAsync<{ day_key: string; sets: number }>(
-      `SELECT s.day AS day_key, COUNT(*) AS sets
-         FROM logged_sets ls
-         JOIN sessions s ON s.id = ls.session_id
-        WHERE date(s.started_at, 'localtime') BETWEEN ? AND ?
-        GROUP BY s.day`,
-      start,
-      end
-    );
-    const counts: Record<string, number> = {};
-    for (const r of rows) counts[r.day_key] = r.sets;
-    setProgress(build(currentWeek(), counts));
-  }, [db]);
+  const query = useQuery({
+    queryKey: ['weekProgress', start, end],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('workout_sessions')
+        .select('day_name, set_logs(count)')
+        .gte('logged_on', start)
+        .lte('logged_on', end);
+      if (error) throw error;
 
-  useFocusEffect(
-    useCallback(() => {
-      reload();
-    }, [reload])
+      const counts: Record<string, number> = {};
+      for (const row of data) {
+        const key = PROGRAM.find((d) => d.label === row.day_name)?.key;
+        if (!key) continue;
+        counts[key] = (counts[key] ?? 0) + (row.set_logs[0]?.count ?? 0);
+      }
+      return counts;
+    },
+  });
+
+  const progress = useMemo(() => build(currentWeek(), query.data ?? {}), [query.data]);
+
+  const reload = useCallback(
+    () => queryClient.invalidateQueries({ queryKey: ['weekProgress'] }),
+    [queryClient]
   );
 
   return { ...progress, reload };

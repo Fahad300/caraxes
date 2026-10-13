@@ -1,50 +1,27 @@
-import { useCallback, useMemo, useState } from 'react';
-import { FlatList, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
-import { useFocusEffect } from 'expo-router';
-import { useSQLiteContext } from 'expo-sqlite';
+import { useMemo, useState } from 'react';
+import { Alert, FlatList, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 
+import { useLogWeight, useWeights } from '../../lib/data';
 import { functional } from '../../lib/theme';
-import { todayDateKey } from '../../lib/time';
 import { average } from '../../lib/weight';
-
-interface WeightEntry {
-  id: number;
-  weight_kg: number;
-  logged_on: string;
-}
 
 // Trend messaging is deliberately based on 7-day averages, never a
 // day-to-day delta — the PRD calls out the known Monday-to-Friday
 // water-retention/glycogen swing and requires the app not read normal
 // weekly fluctuation as fat gain.
 export default function WeightScreen() {
-  const db = useSQLiteContext();
-  const [entries, setEntries] = useState<WeightEntry[]>([]);
+  const weights = useWeights();
+  const entries = useMemo(() => weights.data ?? [], [weights.data]);
+  const logWeight = useLogWeight();
   const [weightInput, setWeightInput] = useState('');
 
-  const loadEntries = useCallback(async () => {
-    const rows = await db.getAllAsync<WeightEntry>('SELECT * FROM weight_entries ORDER BY logged_on DESC LIMIT 60');
-    setEntries(rows);
-  }, [db]);
-
-  useFocusEffect(
-    useCallback(() => {
-      loadEntries();
-    }, [loadEntries])
-  );
-
-  async function logToday() {
+  function logToday() {
     const weight = parseFloat(weightInput);
-    if (Number.isNaN(weight)) return;
-    const today = todayDateKey();
-    await db.runAsync(
-      `INSERT INTO weight_entries (weight_kg, logged_on) VALUES (?, ?)
-       ON CONFLICT(logged_on) DO UPDATE SET weight_kg = excluded.weight_kg`,
-      weight,
-      today
-    );
-    setWeightInput('');
-    loadEntries();
+    if (Number.isNaN(weight) || weight <= 0) return;
+    logWeight.mutate(weight, {
+      onSuccess: () => setWeightInput(''),
+      onError: (e) => Alert.alert("Couldn't save weight", e.message),
+    });
   }
 
   const { latest, thisWeekAvg, lastWeekAvg } = useMemo(() => {
@@ -91,14 +68,14 @@ export default function WeightScreen() {
           value={weightInput}
           onChangeText={setWeightInput}
         />
-        <Pressable style={styles.addButton} onPress={logToday}>
+        <Pressable style={styles.addButton} onPress={logToday} disabled={logWeight.isPending}>
           <Text style={styles.addButtonText}>Log today</Text>
         </Pressable>
       </View>
 
       <FlatList
         data={entries}
-        keyExtractor={(item) => item.logged_on}
+        keyExtractor={(item) => item.id}
         contentContainerStyle={styles.list}
         renderItem={({ item }) => {
           const range = weightRange.max - weightRange.min || 1;

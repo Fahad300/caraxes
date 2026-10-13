@@ -1,16 +1,12 @@
-import { useCallback, useState } from 'react';
-import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
-import { useFocusEffect } from 'expo-router';
-import { useSQLiteContext } from 'expo-sqlite';
+import { Alert, FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 
+import { todayKey, useSupplementLogs, useSupplements, useToggleSupplement } from '../../lib/data';
 import {
-  SUPPLEMENT_STACK,
   VITAMIN_D_RETEST_WINDOW_WEEKS_HIGH,
   VITAMIN_D_RETEST_WINDOW_WEEKS_LOW,
   VITAMIN_D_TEST_DATE,
 } from '../../lib/supplements';
 import { functional } from '../../lib/theme';
-import { isoNow, todayDateKey } from '../../lib/time';
 
 function weeksSince(dateStr: string): number {
   const ms = Date.now() - new Date(dateStr).getTime();
@@ -18,37 +14,16 @@ function weeksSince(dateStr: string): number {
 }
 
 export default function SupplementsScreen() {
-  const db = useSQLiteContext();
-  const [takenToday, setTakenToday] = useState<Set<string>>(new Set());
+  const dateKey = todayKey();
+  const supplements = useSupplements().data ?? [];
+  const takenToday = useSupplementLogs(dateKey).data ?? new Set<string>();
+  const toggleSupplement = useToggleSupplement();
 
-  const loadToday = useCallback(async () => {
-    const today = todayDateKey();
-    const rows = await db.getAllAsync<{ supplement_name: string }>(
-      'SELECT supplement_name FROM supplement_logs WHERE taken_on = ?',
-      today
+  function toggle(supplementId: string) {
+    toggleSupplement.mutate(
+      { supplementId, taken: takenToday.has(supplementId), dateKey },
+      { onError: (e) => Alert.alert("Couldn't update supplement", e.message) }
     );
-    setTakenToday(new Set(rows.map((r) => r.supplement_name)));
-  }, [db]);
-
-  useFocusEffect(
-    useCallback(() => {
-      loadToday();
-    }, [loadToday])
-  );
-
-  async function toggle(name: string) {
-    const today = todayDateKey();
-    if (takenToday.has(name)) {
-      await db.runAsync('DELETE FROM supplement_logs WHERE supplement_name = ? AND taken_on = ?', name, today);
-    } else {
-      await db.runAsync(
-        'INSERT INTO supplement_logs (supplement_name, taken_on, logged_at) VALUES (?, ?, ?)',
-        name,
-        today,
-        isoNow()
-      );
-    }
-    loadToday();
   }
 
   const weeksSinceTest = weeksSince(VITAMIN_D_TEST_DATE);
@@ -68,20 +43,20 @@ export default function SupplementsScreen() {
       )}
 
       <FlatList
-        data={SUPPLEMENT_STACK}
-        keyExtractor={(item) => item.name}
+        data={supplements}
+        keyExtractor={(item) => item.id}
         contentContainerStyle={styles.list}
         renderItem={({ item }) => {
-          const taken = takenToday.has(item.name);
+          const taken = takenToday.has(item.id);
           return (
-            <Pressable style={styles.row} onPress={() => toggle(item.name)}>
+            <Pressable style={styles.row} onPress={() => toggle(item.id)}>
               <View style={[styles.checkbox, taken && styles.checkboxChecked]}>
                 {taken && <Text style={styles.checkmark}>✓</Text>}
               </View>
               <View style={styles.rowText}>
                 <Text style={styles.name}>{item.name}</Text>
                 <Text style={styles.meta}>
-                  {item.dose} - {item.timing}
+                  {[item.dose, item.timing].filter(Boolean).join(' - ')}
                 </Text>
               </View>
             </Pressable>

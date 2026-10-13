@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { FlatList, StyleSheet, Text, View } from 'react-native';
-import { useSQLiteContext } from 'expo-sqlite';
+import { Alert, FlatList, StyleSheet, Text, View } from 'react-native';
 
 import { DurationTimer } from '../../components/DurationTimer';
 import { ExerciseCard, type LoggedSet } from '../../components/ExerciseCard';
@@ -13,15 +12,15 @@ import {
   getPostSessionItems,
   getProgramDay,
 } from '../../lib/program';
+import { createSession, deleteSetLog, insertSetLog, useRoutineDays } from '../../lib/data';
 import { functional, restSecondsByPhase, stopwatchColor } from '../../lib/theme';
-import { formatDuration, isoNow, todayProgramDay } from '../../lib/time';
+import { formatDuration, todayProgramDay } from '../../lib/time';
 import { useRestTimer } from '../../lib/useRestTimer';
 import { useWeekProgress } from '../../lib/useWeekProgress';
 
 export default function WorkoutScreen() {
-  const db = useSQLiteContext();
   const [selectedDay, setSelectedDay] = useState<DayKey | null>(todayProgramDay());
-  const [sessionId, setSessionId] = useState<number | null>(null);
+  const [sessionId, setSessionId] = useState<string | null>(null);
   const [sessionStartedAt, setSessionStartedAt] = useState<number | null>(null);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [setsByExercise, setSetsByExercise] = useState<Record<string, LoggedSet[]>>({});
@@ -31,6 +30,7 @@ export default function WorkoutScreen() {
   const sessionInterval = useRef<ReturnType<typeof setInterval> | null>(null);
   const rest = useRestTimer();
   const week = useWeekProgress();
+  const routineDays = useRoutineDays();
 
   const day = selectedDay ? getProgramDay(selectedDay) : undefined;
 
@@ -44,17 +44,14 @@ export default function WorkoutScreen() {
     };
   }, [sessionStartedAt]);
 
-  async function ensureSession(): Promise<number> {
+  async function ensureSession(): Promise<string> {
     if (sessionId !== null) return sessionId;
-    const startedAt = isoNow();
-    const result = await db.runAsync(
-      'INSERT INTO sessions (day, started_at) VALUES (?, ?)',
-      selectedDay ?? 'unknown',
-      startedAt
-    );
-    setSessionId(result.lastInsertRowId);
-    setSessionStartedAt(Date.parse(startedAt));
-    return result.lastInsertRowId;
+    const dayName = day?.label ?? 'Unknown';
+    const routineDayId = routineDays.data?.find((d) => d.name === dayName)?.id ?? null;
+    const session = await createSession({ dayName, routineDayId });
+    setSessionId(session.id);
+    setSessionStartedAt(Date.parse(session.started_at));
+    return session.id;
   }
 
   async function completeSet(exerciseName: string, isLastSet: boolean, phase: keyof typeof restSecondsByPhase) {
@@ -62,23 +59,23 @@ export default function WorkoutScreen() {
     const reps = parseInt(repsInput, 10);
     if (Number.isNaN(weight) || Number.isNaN(reps)) return;
 
-    const sid = await ensureSession();
     const existing = setsByExercise[exerciseName] ?? [];
     const setNumber = existing.length + 1;
 
-    const result = await db.runAsync(
-      'INSERT INTO logged_sets (session_id, exercise_name, set_number, weight, reps, logged_at) VALUES (?, ?, ?, ?, ?, ?)',
-      sid,
-      exerciseName,
-      setNumber,
-      weight,
-      reps,
-      isoNow()
-    );
+    let id: string;
+    try {
+      const sid = await ensureSession();
+      id = await insertSetLog({ sessionId: sid, exerciseName, setNumber, weight, reps });
+    } catch (e) {
+      // Nothing is recorded locally on failure, so the inputs stay filled and
+      // the user can retry the same set.
+      Alert.alert("Couldn't save set", e instanceof Error ? e.message : 'Check your connection.');
+      return;
+    }
 
     setSetsByExercise((prev) => ({
       ...prev,
-      [exerciseName]: [...existing, { id: result.lastInsertRowId, setNumber, weight, reps }],
+      [exerciseName]: [...existing, { id, setNumber, weight, reps }],
     }));
     setWeightInput('');
     setRepsInput('');
@@ -95,7 +92,12 @@ export default function WorkoutScreen() {
     const existing = setsByExercise[exerciseName] ?? [];
     const last = existing[existing.length - 1];
     if (!last) return;
-    await db.runAsync('DELETE FROM logged_sets WHERE id = ?', last.id);
+    try {
+      await deleteSetLog(last.id);
+    } catch (e) {
+      Alert.alert("Couldn't undo set", e instanceof Error ? e.message : 'Check your connection.');
+      return;
+    }
     setSetsByExercise((prev) => ({
       ...prev,
       [exerciseName]: existing.slice(0, -1),

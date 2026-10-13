@@ -1,25 +1,59 @@
 import { QueryClientProvider } from '@tanstack/react-query';
-import { Stack } from 'expo-router';
+import { SplashScreen, Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { SQLiteProvider } from 'expo-sqlite';
+import { useEffect } from 'react';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
-import { DATABASE_NAME, migrateDbIfNeeded } from '../lib/db';
+import { AuthProvider, useAuth } from '../lib/auth';
 import { queryClient } from '../lib/queryClient';
+import { brand, functional } from '../lib/theme';
 
-// SQLiteProvider stays until the screens move onto the shared Supabase data
-// layer (phase 2); QueryClientProvider is added now so new hooks can use it.
+// Keep the splash up until the stored session has been read, so a signed-in
+// user never flashes the welcome screen.
+SplashScreen.preventAutoHideAsync();
+
 export default function RootLayout() {
   return (
     <QueryClientProvider client={queryClient}>
-      <SQLiteProvider databaseName={DATABASE_NAME} onInit={migrateDbIfNeeded}>
+      <AuthProvider>
         <SafeAreaProvider>
           <StatusBar style="light" />
-          <Stack screenOptions={{ headerShown: false }}>
-            <Stack.Screen name="(tabs)" />
-          </Stack>
+          <RootNavigator />
         </SafeAreaProvider>
-      </SQLiteProvider>
+      </AuthProvider>
     </QueryClientProvider>
+  );
+}
+
+function RootNavigator() {
+  const { session, isLoading } = useAuth();
+
+  useEffect(() => {
+    if (!isLoading) SplashScreen.hide();
+  }, [isLoading]);
+
+  // Until the session is known, render nothing under the splash.
+  if (isLoading) return null;
+
+  return (
+    <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: brand.black } }}>
+      <Stack.Protected guard={!!session}>
+        <Stack.Screen name="(tabs)" />
+      </Stack.Protected>
+
+      <Stack.Protected guard={!session}>
+        <Stack.Screen name="welcome" />
+        <Stack.Screen
+          name="sign-in"
+          options={{
+            headerShown: true,
+            title: '',
+            headerShadowVisible: false,
+            headerStyle: { backgroundColor: brand.black },
+            headerTintColor: functional.text,
+          }}
+        />
+      </Stack.Protected>
+    </Stack>
   );
 }

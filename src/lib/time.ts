@@ -20,10 +20,9 @@ export function formatDuration(totalSeconds: number): string {
   return `${minutes}:${seconds.toString().padStart(2, '0')}`;
 }
 
-export function isoNow(): string {
-  return new Date().toISOString();
-}
-
-export function todayDateKey(): string {
-  return new Date().toISOString().slice(0, 10);
+// HH:MM in the device's local time zone.
+export function clockTime(iso: string): string {
+  const d = new Date(iso);
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }

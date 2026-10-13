@@ -1,55 +1,33 @@
-import { useCallback, useState } from 'react';
-import { FlatList, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
-import { useFocusEffect } from 'expo-router';
-import { useSQLiteContext } from 'expo-sqlite';
+import { useState } from 'react';
+import { Alert, FlatList, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 
+import { todayKey, useAddFoodLog, useFoodLogs } from '../../lib/data';
 import { PROTEIN_TARGET_HIGH_G, PROTEIN_TARGET_LOW_G } from '../../lib/program';
 import { functional } from '../../lib/theme';
-import { isoNow, todayDateKey } from '../../lib/time';
-
-interface Meal {
-  id: number;
-  protein_grams: number;
-  note: string | null;
-  logged_at: string;
-}
+import { clockTime } from '../../lib/time';
 
 export default function DietScreen() {
-  const db = useSQLiteContext();
-  const [meals, setMeals] = useState<Meal[]>([]);
+  const meals = useFoodLogs(todayKey()).data ?? [];
+  const addFoodLog = useAddFoodLog();
   const [proteinInput, setProteinInput] = useState('');
   const [noteInput, setNoteInput] = useState('');
 
-  const loadToday = useCallback(async () => {
-    const today = todayDateKey();
-    const rows = await db.getAllAsync<Meal>(
-      "SELECT * FROM meals WHERE date(logged_at) = ? ORDER BY logged_at ASC",
-      today
-    );
-    setMeals(rows);
-  }, [db]);
-
-  useFocusEffect(
-    useCallback(() => {
-      loadToday();
-    }, [loadToday])
-  );
-
-  const totalProtein = meals.reduce((sum, m) => sum + m.protein_grams, 0);
+  const totalProtein = meals.reduce((sum, m) => sum + m.protein_g, 0);
   const remaining = Math.max(0, PROTEIN_TARGET_LOW_G - totalProtein);
 
-  async function addMeal() {
+  function addMeal() {
     const grams = parseFloat(proteinInput);
-    if (Number.isNaN(grams)) return;
-    await db.runAsync(
-      'INSERT INTO meals (protein_grams, note, logged_at) VALUES (?, ?, ?)',
-      grams,
-      noteInput || null,
-      isoNow()
+    if (Number.isNaN(grams) || grams < 0) return;
+    addFoodLog.mutate(
+      { proteinG: grams, label: noteInput.trim() || 'Meal' },
+      {
+        onSuccess: () => {
+          setProteinInput('');
+          setNoteInput('');
+        },
+        onError: (e) => Alert.alert("Couldn't save meal", e.message),
+      }
     );
-    setProteinInput('');
-    setNoteInput('');
-    loadToday();
   }
 
   return (
@@ -79,7 +57,7 @@ export default function DietScreen() {
           value={noteInput}
           onChangeText={setNoteInput}
         />
-        <Pressable style={styles.addButton} onPress={addMeal}>
+        <Pressable style={styles.addButton} onPress={addMeal} disabled={addFoodLog.isPending}>
           <Text style={styles.addButtonText}>Add</Text>
         </Pressable>
       </View>
@@ -90,9 +68,9 @@ export default function DietScreen() {
         contentContainerStyle={styles.list}
         renderItem={({ item }) => (
           <View style={styles.mealRow}>
-            <Text style={styles.mealProtein}>{item.protein_grams}g</Text>
-            <Text style={styles.mealNote}>{item.note ?? '-'}</Text>
-            <Text style={styles.mealTime}>{item.logged_at.slice(11, 16)}</Text>
+            <Text style={styles.mealProtein}>{item.protein_g}g</Text>
+            <Text style={styles.mealNote}>{item.label}</Text>
+            <Text style={styles.mealTime}>{clockTime(item.logged_at)}</Text>
           </View>
         )}
       />

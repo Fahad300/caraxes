@@ -10,8 +10,8 @@ export interface WeekDay {
   isToday: boolean;
 }
 
-// Local calendar date (YYYY-MM-DD). Deliberately not todayDateKey(), which is
-// the UTC date: the week strip has to roll over at the user's midnight.
+// Local calendar date (YYYY-MM-DD), not the UTC date from toISOString(): days
+// (and the week strip) have to roll over at the user's midnight.
 export function localDateKey(d: Date): string {
   const month = String(d.getMonth() + 1).padStart(2, '0');
   const day = String(d.getDate()).padStart(2, '0');

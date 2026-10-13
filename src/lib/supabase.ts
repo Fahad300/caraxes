@@ -1,6 +1,8 @@
 import 'expo-sqlite/localStorage/install';
 import { createClient } from '@supabase/supabase-js';
 
+import type { Database } from './database.types';
+
 // Only the publishable key belongs in the app: it is visible to anyone who
 // has the bundle, and row-level security on every table is what protects the
 // data. Never put a service-role key or any other secret in an
@@ -15,7 +17,7 @@ if (!supabaseUrl || !supabaseKey) {
   );
 }
 
-export const supabase = createClient(supabaseUrl, supabaseKey, {
+export const supabase = createClient<Database>(supabaseUrl, supabaseKey, {
   auth: {
     storage: localStorage,
     autoRefreshToken: true,

@@ -1,60 +1,35 @@
-import { useCallback, useState } from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
-import { router, useFocusEffect } from 'expo-router';
-import { useSQLiteContext } from 'expo-sqlite';
+import { router } from 'expo-router';
 
 import { ProgressBar } from '../../components/ProgressBar';
 import { StatCard } from '../../components/StatCard';
+import { todayKey, useFoodLogs, useSupplementLogs, useSupplements, useWeights } from '../../lib/data';
 import { getProgramDay, PROTEIN_TARGET_HIGH_G, PROTEIN_TARGET_LOW_G } from '../../lib/program';
-import { SUPPLEMENT_STACK } from '../../lib/supplements';
 import { functional, spacing } from '../../lib/theme';
-import { todayDateKey, todayProgramDay } from '../../lib/time';
+import { todayProgramDay } from '../../lib/time';
 import { useWeekProgress } from '../../lib/useWeekProgress';
 import { average } from '../../lib/weight';
-
-interface Snapshot {
-  proteinGrams: number;
-  supplementsTaken: number;
-  latestWeight: number | null;
-  weekAvgWeight: number | null;
-}
-
-const EMPTY: Snapshot = { proteinGrams: 0, supplementsTaken: 0, latestWeight: null, weekAvgWeight: null };
 
 // Read-only overview. Every figure comes from data the other tabs already
 // log; tapping a card opens the tab that owns it.
 export default function TodayScreen() {
-  const db = useSQLiteContext();
   const week = useWeekProgress();
-  const [snapshot, setSnapshot] = useState<Snapshot>(EMPTY);
+  const dateKey = todayKey();
+  const meals = useFoodLogs(dateKey).data ?? [];
+  const supplementCount = useSupplements().data?.length ?? 0;
+  const supplementsTaken = useSupplementLogs(dateKey).data?.size ?? 0;
+  const recentWeights = (useWeights().data ?? []).slice(0, 7);
 
-  const load = useCallback(async () => {
-    const today = todayDateKey();
-    const [protein, supplements, weights] = await Promise.all([
-      db.getFirstAsync<{ total: number }>(
-        'SELECT COALESCE(SUM(protein_grams), 0) AS total FROM meals WHERE date(logged_at) = ?',
-        today
-      ),
-      db.getFirstAsync<{ n: number }>('SELECT COUNT(*) AS n FROM supplement_logs WHERE taken_on = ?', today),
-      db.getAllAsync<{ weight_kg: number }>('SELECT weight_kg FROM weight_entries ORDER BY logged_on DESC LIMIT 7'),
-    ]);
-    setSnapshot({
-      proteinGrams: protein?.total ?? 0,
-      supplementsTaken: supplements?.n ?? 0,
-      latestWeight: weights[0]?.weight_kg ?? null,
-      weekAvgWeight: average(weights),
-    });
-  }, [db]);
+  const snapshot = {
+    proteinGrams: meals.reduce((sum, m) => sum + m.protein_g, 0),
+    supplementsTaken,
+    latestWeight: recentWeights[0]?.weight_kg ?? null,
+    weekAvgWeight: average(recentWeights),
+  };
 
-  useFocusEffect(
-    useCallback(() => {
-      load();
-    }, [load])
-  );
-
-  const todayKey = todayProgramDay();
-  const todayProgress = week.days.find((d) => d.key === todayKey);
-  const todayProgram = todayKey ? getProgramDay(todayKey) : undefined;
+  const programKey = todayProgramDay();
+  const todayProgress = week.days.find((d) => d.key === programKey);
+  const todayProgram = programKey ? getProgramDay(programKey) : undefined;
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
@@ -82,7 +57,7 @@ export default function TodayScreen() {
         <StatCard
           style={styles.half}
           title="Supplements"
-          value={`${snapshot.supplementsTaken}/${SUPPLEMENT_STACK.length}`}
+          value={`${snapshot.supplementsTaken}/${supplementCount}`}
           caption="taken today"
           onPress={() => router.navigate('/supplements')}
         />

@@ -33,6 +33,9 @@ export const functionalDark = {
 // Dark is the primary/default theme per the design doc.
 export const functional = functionalDark;
 
+// Inline error text on the dark background (form validation, auth errors).
+export const dangerText = '#F87171';
+
 export type Phase =
   | 'warmup'
   | 'dynamicStretch'

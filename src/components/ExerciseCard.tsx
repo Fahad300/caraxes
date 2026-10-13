@@ -4,7 +4,7 @@ import type { ProgramExercise } from '../lib/program';
 import { functional, phaseColors, radius, spacing } from '../lib/theme';
 
 export interface LoggedSet {
-  id: number;
+  id: string;
   setNumber: number;
   weight: number;
   reps: number;
