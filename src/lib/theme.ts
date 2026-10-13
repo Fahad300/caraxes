@@ -64,6 +64,12 @@ export const restSecondsByPhase: Partial<Record<Phase, number>> = {
   isolation: 60,
 };
 
+// Layout scales, taken from the values the screens already use so new
+// components stop adding literals. Not on a strict 4pt grid: 6/10/12 are the
+// app's real rhythm.
+export const spacing = { xxs: 2, xs: 6, sm: 8, md: 12, lg: 16, xl: 20, xxl: 24 } as const;
+export const radius = { sm: 6, md: 8, lg: 10, xl: 12 } as const;
+
 export const REST_EXTEND_SECONDS = 15;
 
 export const SESSION_AMBER_MINUTES = 75;
