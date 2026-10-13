@@ -5,6 +5,7 @@ import { useSQLiteContext } from 'expo-sqlite';
 
 import { functional } from '../../lib/theme';
 import { todayDateKey } from '../../lib/time';
+import { average } from '../../lib/weight';
 
 interface WeightEntry {
   id: number;
@@ -16,11 +17,6 @@ interface WeightEntry {
 // day-to-day delta — the PRD calls out the known Monday-to-Friday
 // water-retention/glycogen swing and requires the app not read normal
 // weekly fluctuation as fat gain.
-function average(entries: WeightEntry[]): number | null {
-  if (entries.length === 0) return null;
-  return entries.reduce((sum, e) => sum + e.weight_kg, 0) / entries.length;
-}
-
 export default function WeightScreen() {
   const db = useSQLiteContext();
   const [entries, setEntries] = useState<WeightEntry[]>([]);

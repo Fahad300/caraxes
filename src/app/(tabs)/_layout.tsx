@@ -5,6 +5,7 @@ import { brand, functional } from '../../lib/theme';
 export default function TabsLayout() {
   return (
     <Tabs
+      initialRouteName="today"
       screenOptions={{
         headerShown: true,
         headerStyle: { backgroundColor: brand.black },
@@ -15,6 +16,7 @@ export default function TabsLayout() {
         tabBarInactiveTintColor: functional.textDim,
       }}
     >
+      <Tabs.Screen name="today" options={{ title: 'Today' }} />
       <Tabs.Screen name="index" options={{ title: 'Workout' }} />
       <Tabs.Screen name="diet" options={{ title: 'Diet' }} />
       <Tabs.Screen name="supplements" options={{ title: 'Supplements' }} />
