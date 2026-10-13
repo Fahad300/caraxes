@@ -171,6 +171,16 @@ without adding a runtime dependency.
 ### Layout
 - Mobile-first, single column, 44×44pt minimum touch targets
 - Sticky day-tab bar, auto-selects today's actual weekday
+- Week strip (Workout screen): Mon-Fri with dates; selected day is the
+  inverted fill, today is outlined, and a check appears once a day's planned
+  sets are all logged. Neutral tokens only — no color is added for status.
+- Today tab (first tab, read-only): rounded elevated stat cards for today's
+  sets, weekly set progress bar, protein, supplements and weight (7-day
+  average). Same functional palette as the session screens; each card opens
+  the tab that owns the data. No badges, stars or points — progress is sets
+  logged against the fixed program.
+- Layout scales live in `lib/theme.ts` (`spacing`, `radius`) and come from
+  the values the screens already use.
 - No decorative motion — only state-driven transitions (rest banner
   slide-up, button press feedback)
 
