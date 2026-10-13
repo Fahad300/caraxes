@@ -51,7 +51,7 @@ export default function WorkoutScreen() {
       startedAt
     );
     setSessionId(result.lastInsertRowId);
-    setSessionStartedAt(Date.now());
+    setSessionStartedAt(Date.parse(startedAt));
     return result.lastInsertRowId;
   }
 

@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useState } from 'react';
 import { Animated, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { functional, REST_EXTEND_SECONDS } from '../lib/theme';
@@ -14,7 +14,7 @@ interface Props {
 // Slide-up rest banner — the only state-driven transition in the functional
 // UI (design doc: "no decorative motion — only state-driven transitions").
 export function RestBanner({ secondsLeft, isActive, onSkip, onExtend }: Props) {
-  const translateY = useRef(new Animated.Value(80)).current;
+  const [translateY] = useState(() => new Animated.Value(80));
 
   useEffect(() => {
     Animated.timing(translateY, {
